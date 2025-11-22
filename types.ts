@@ -9,6 +9,9 @@ export interface SearchCriteria {
   keyword: string;
   city: string;
   district: string;
+  jobCategory?: string;
+  workShift?: string[];
+  salaryRange?: { min: number; max: number };
 }
 
 export interface JobListing {
@@ -18,7 +21,8 @@ export interface JobListing {
   location: string;
   salary: string;
   description: string;
-  source?: string;
+  source: string;
+  logo?: string; // URL to company logo
 }
 
 export interface ScamAnalysis {
@@ -29,10 +33,10 @@ export interface ScamAnalysis {
 }
 
 export interface SuitabilityAnalysis {
-  matchScore: number; // 0-100
   skillsRequired: string[];
   pros: string[];
   cons: string[];
+  contactRisks: string[]; // Phân tích về links, SDT, email đáng ngờ
   advice: string;
 }
 

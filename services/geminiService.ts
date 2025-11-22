@@ -1,13 +1,21 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { JobEntity, ScamAnalysis, SuitabilityAnalysis, GroundingData, GroundingSource, JobListing, SearchCriteria } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Lazy initialization to prevent crash on load if env var is missing
+const getAI = () => {
+  const apiKey = import.meta.env.VITE_API_KEY;
+  if (!apiKey) {
+    throw new Error("API Key is missing. Please check your .env file.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 // --- HELPER: INPUT PROCESSING ---
 
 // Extract text from an image (Screenshot of job posting)
 export const extractContentFromImage = async (base64Data: string, mimeType: string): Promise<string> => {
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: {
@@ -27,13 +35,14 @@ export const extractContentFromImage = async (base64Data: string, mimeType: stri
     return response.text || "Không thể đọc được nội dung từ ảnh.";
   } catch (error) {
     console.error("Image extraction failed:", error);
-    return "Lỗi khi xử lý hình ảnh. Vui lòng thử lại hoặc nhập văn bản thủ công.";
+    return "Lỗi: Không thể xử lý ảnh (Vui lòng kiểm tra API Key hoặc thử lại).";
   }
 };
 
 // Extract content from a URL using Google Search grounding
 export const extractContentFromUrl = async (url: string): Promise<string> => {
   try {
+    const ai = getAI();
     const prompt = `
       Analyze the content of this URL: "${url}"
       
@@ -81,6 +90,7 @@ export const extractContentFromUrl = async (url: string): Promise<string> => {
 // Finds jobs using Google Search and parses them into a structured list.
 export const searchJobs = async (criteria: SearchCriteria, userLocation?: GeolocationCoordinates): Promise<{ jobs: JobListing[], sources: GroundingSource[] }> => {
   try {
+    const ai = getAI();
     const locationContext = userLocation 
       ? `(Context: User is at Latitude ${userLocation.latitude}, Longitude ${userLocation.longitude})` 
       : '';
@@ -89,6 +99,7 @@ export const searchJobs = async (criteria: SearchCriteria, userLocation?: Geoloc
     let query = `việc làm part-time cho sinh viên ${criteria.keyword}`;
     if (criteria.district) query += ` tại ${criteria.district}`;
     if (criteria.city) query += ` ở ${criteria.city}`;
+    if (criteria.jobCategory) query += ` lĩnh vực ${criteria.jobCategory}`;
 
     const prompt = `
       Help me find a comprehensive list of RECENT part-time job recruitments for students in Vietnam based on this query: "${query}". ${locationContext}
@@ -147,14 +158,19 @@ export const searchJobs = async (criteria: SearchCriteria, userLocation?: Geoloc
       const sourceMatch = raw.match(/Source:\s*(.+)/);
 
       if (titleMatch) {
+        const companyName = companyMatch ? companyMatch[1].trim() : "Đang cập nhật";
+        const encodedName = encodeURIComponent(companyName);
+        const logoUrl = `https://ui-avatars.com/api/?name=${encodedName}&background=random&color=fff&size=128&bold=true&font-size=0.5`;
+
         jobs.push({
           id: `job-${index}-${Date.now()}`,
           title: titleMatch[1].trim(),
-          company: companyMatch ? companyMatch[1].trim() : "Đang cập nhật",
+          company: companyName,
           location: locationMatch ? locationMatch[1].trim() : criteria.city || "Việt Nam",
           salary: salaryMatch ? salaryMatch[1].trim() : "Thỏa thuận",
           description: descMatch ? descMatch[1].trim() : "",
-          source: sourceMatch ? sourceMatch[1].trim() : "Google Search"
+          source: sourceMatch ? sourceMatch[1].trim() : "Google Search",
+          logo: logoUrl
         });
       }
     });
@@ -171,6 +187,7 @@ export const searchJobs = async (criteria: SearchCriteria, userLocation?: Geoloc
 // Extract basic info extremely fast to show the user we understood the input.
 export const quickExtractEntities = async (text: string): Promise<JobEntity> => {
   try {
+    const ai = getAI();
     const schema: Schema = {
       type: Type.OBJECT,
       properties: {
@@ -205,6 +222,7 @@ export const quickExtractEntities = async (text: string): Promise<JobEntity> => 
 // Use heavy reasoning to detect subtle scam patterns.
 export const analyzeScamRisk = async (text: string): Promise<ScamAnalysis> => {
   try {
+    const ai = getAI();
     const prompt = `
       Bạn là một chuyên gia an ninh mạng và bảo vệ người lao động. Hãy phân tích tin tuyển dụng dưới đây để tìm dấu hiệu lừa đảo (scam).
       
@@ -249,7 +267,7 @@ export const analyzeScamRisk = async (text: string): Promise<ScamAnalysis> => {
     return {
       score: 50,
       riskLevel: "Cảnh Báo",
-      reasons: ["Không thể phân tích chi tiết do lỗi hệ thống."],
+      reasons: ["Không thể phân tích chi tiết do lỗi hệ thống (hoặc thiếu API Key)."],
       verdict: "Vui lòng tự kiểm tra kỹ lưỡng."
     };
   }
@@ -259,6 +277,7 @@ export const analyzeScamRisk = async (text: string): Promise<ScamAnalysis> => {
 // Verify company existence and check reputation on Forums/Social Media.
 export const verifyCompany = async (text: string, userLocation?: GeolocationCoordinates): Promise<GroundingData> => {
   try {
+    const ai = getAI();
     const locationConfig = userLocation ? {
       retrievalConfig: {
         latLng: {
@@ -320,22 +339,36 @@ export const verifyCompany = async (text: string, userLocation?: GeolocationCoor
 
   } catch (error) {
     console.error("Verification failed:", error);
-    return { verificationText: "Lỗi khi kết nối hệ thống xác minh.", searchChunks: [], mapChunks: [] };
+    return { verificationText: "Lỗi khi kết nối hệ thống xác minh (hoặc thiếu API Key).", searchChunks: [], mapChunks: [] };
   }
 };
 
 // 4. Suitability & Application Draft (Flash)
-// Standard generation task.
+// Focus on contact risk analysis and practical advice
 export const analyzeSuitabilityAndDraft = async (text: string): Promise<{ suitability: SuitabilityAnalysis, draft: string }> => {
   try {
-    // Combined prompt for efficiency
+    const ai = getAI();
     const prompt = `
-      Phân tích tin tuyển dụng này dưới góc độ phù hợp cho sinh viên (part-time).
-      Sau đó viết một tin nhắn xin việc mẫu ngắn gọn, lịch sự, chuyên nghiệp bằng tiếng Việt.
+      Phân tích tin tuyển dụng cho sinh viên part-time.
+      
+      **PHÂN TÍCH QUAN TRỌNG - THÔNG TIN LIÊN LẠC:**
+      1. **Số điện thoại**: 
+         - Format số có bình thường không? (nhiều số lặp = đáng ngờ)
+         - Có xuất hiện nhiều SĐT khác nhau không?
+      2. **Email**:
+         - Email doanh nghiệp (@công-ty.com) hay email miễn phí (gmail, yahoo)?
+         - Email có khớp với tên công ty?
+      3. **Links/Website**:
+         - Link rút gọn (bit.ly, tinyurl) - RẤT NGUY HIỂM
+         - Facebook cá nhân vs Fanpage chính thức?
+         - Website công ty có tồn tại?
+      4. **Địa chỉ**:
+         - Có địa chỉ văn phòng cụ thể?
+         - Hay chỉ hẹn gặp tại quán cà phê?
       
       Tin tuyển dụng: "${text}"
       
-      Trả về JSON.
+      Trả về JSON với phân tích chi tiết.
     `;
 
     const schema: Schema = {
@@ -344,14 +377,34 @@ export const analyzeSuitabilityAndDraft = async (text: string): Promise<{ suitab
         suitability: {
             type: Type.OBJECT,
             properties: {
-                matchScore: { type: Type.INTEGER },
-                skillsRequired: { type: Type.ARRAY, items: { type: Type.STRING } },
-                pros: { type: Type.ARRAY, items: { type: Type.STRING } },
-                cons: { type: Type.ARRAY, items: { type: Type.STRING } },
-                advice: { type: Type.STRING }
-            }
+                skillsRequired: { 
+                  type: Type.ARRAY, 
+                  items: { type: Type.STRING }, 
+                  description: "Kỹ năng cần thiết"
+                },
+                pros: { 
+                  type: Type.ARRAY, 
+                  items: { type: Type.STRING }, 
+                  description: "Ưu điểm của công việc"
+                },
+                cons: { 
+                  type: Type.ARRAY, 
+                  items: { type: Type.STRING }, 
+                  description: "Nhược điểm cần cân nhắc"
+                },
+                contactRisks: { 
+                  type: Type.ARRAY, 
+                  items: { type: Type.STRING }, 
+                  description: "QUAN TRỌNG NHẤT: Phân tích chi tiết rủi ro về SĐT, email, link, địa chỉ đáng ngờ. Nếu không có rủi ro, trả về mảng rỗng []"
+                },
+                advice: { 
+                  type: Type.STRING, 
+                  description: "Lời khuyên tổng hợp về an toàn và quyết định"
+                }
+            },
+            required: ["skillsRequired", "pros", "cons", "contactRisks", "advice"]
         },
-        draft: { type: Type.STRING }
+        draft: { type: Type.STRING, description: "Tin nhắn xin việc mẫu ngắn gọn" }
       }
     };
 
@@ -372,7 +425,13 @@ export const analyzeSuitabilityAndDraft = async (text: string): Promise<{ suitab
   } catch (e) {
       console.error(e);
       return {
-          suitability: { matchScore: 0, skillsRequired: [], pros: [], cons: [], advice: "Lỗi phân tích" },
+          suitability: { 
+            skillsRequired: [], 
+            pros: [], 
+            cons: [], 
+            contactRisks: ["Lỗi phân tích - vui lòng kiểm tra thủ công tất cả thông tin liên lạc"], 
+            advice: "Không thể phân tích tự động. Vui lòng kiểm tra RẤT KỸ số điện thoại, email, link trước khi ứng tuyển." 
+          },
           draft: ""
       }
   }

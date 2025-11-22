@@ -130,17 +130,42 @@ const VerificationInput: React.FC<VerificationInputProps> = ({ onAnalyze, isAnal
 
           {activeTab === 'link' && (
             <div className="space-y-4">
-              <div className="bg-blue-50 text-blue-700 text-xs p-3 rounded-lg border border-blue-100 flex gap-2 items-start">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              {/* Warning Box */}
+              <div className="bg-amber-50 text-amber-800 text-sm p-4 rounded-xl border border-amber-200 flex gap-3 items-start">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0 mt-0.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                <p>Lưu ý: Một số link Facebook hoặc Nhóm kín không thể truy cập trực tiếp. Nếu gặp lỗi, vui lòng sao chép nội dung và dùng tab <strong>Văn Bản</strong>.</p>
+                <div>
+                  <p className="font-semibold mb-1">⚠️ Giới hạn với Link Mạng Xã Hội</p>
+                  <p className="text-xs leading-relaxed">
+                    <strong>Facebook, Zalo, Telegram:</strong> Các link này thường yêu cầu đăng nhập nên AI không thể truy cập. 
+                    <br/>
+                    <strong>Giải pháp:</strong> Sao chép nội dung và dán vào tab <strong className="text-teal-600">"Văn Bản"</strong> để phân tích chính xác.
+                  </p>
+                </div>
               </div>
+
+              {/* Success Examples */}
+              <div className="bg-green-50 text-green-800 text-sm p-4 rounded-xl border border-green-200">
+                <p className="font-semibold mb-2 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  ✅ Link hoạt động tốt:
+                </p>
+                <ul className="text-xs space-y-1 ml-6 list-disc">
+                  <li>Trang tuyển dụng công khai: TopCV, VietnamWorks, CareerBuilder...</li>
+                  <li>Website công ty chính thức</li>
+                  <li>Diễn đàn công khai: Voz, Tinhte...</li>
+                  <li>Blog, tin tức công khai</li>
+                </ul>
+              </div>
+
               <div className="relative">
                 <input
                     type="url"
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent text-gray-700 placeholder-gray-400"
-                    placeholder="https://facebook.com/..."
+                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-700 placeholder-gray-400 transition-all"
+                    placeholder="https://www.topcv.vn/viec-lam/..."
                     value={urlContent}
                     onChange={(e) => setUrlContent(e.target.value)}
                     disabled={isAnalyzing}

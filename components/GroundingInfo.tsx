@@ -29,6 +29,16 @@ const GroundingInfo: React.FC<GroundingInfoProps> = ({ data }) => {
   // Clean the verification text
   const cleanedText = cleanCitations(data.verificationText);
 
+  // Check if we have meaningful data to display
+  const hasVerificationText = cleanedText && cleanedText.length > 20;
+  const hasSearchChunks = data.searchChunks && data.searchChunks.length > 0;
+  const hasMapChunks = uniqueMapChunks && uniqueMapChunks.length > 0;
+
+  // Don't render if there's no meaningful data at all
+  if (!hasVerificationText && !hasSearchChunks && !hasMapChunks) {
+    return null;
+  }
+
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mt-6">
       <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -40,15 +50,25 @@ const GroundingInfo: React.FC<GroundingInfoProps> = ({ data }) => {
         Xác Minh & Kiểm Tra Cộng Đồng
       </h3>
 
-      {/* Main Verification Text */}
-      <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl p-5 border border-indigo-100 mb-6">
-         <MarkdownRenderer content={cleanedText} className="text-sm text-gray-700 leading-relaxed" />
-      </div>
+      {/* Main Verification Text - Only show if exists */}
+      {hasVerificationText && (
+        <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl p-5 border border-indigo-100 mb-6">
+           <MarkdownRenderer content={cleanedText} className="text-sm text-gray-700 leading-relaxed" />
+        </div>
+      )}
+
+      {/* Show placeholder if no verification text but have other data */}
+      {!hasVerificationText && (hasSearchChunks || hasMapChunks) && (
+        <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl p-5 border border-indigo-100 mb-6">
+          <p className="text-sm text-gray-500 italic">Thông tin xác minh hạn chế. Vui lòng kiểm tra nguồn bên dưới.</p>
+        </div>
+      )}
 
       {/* Sources Grid */}
+      {(hasSearchChunks || hasMapChunks) && (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Web Sources (Forums, Socials, Job Boards) */}
-        {data.searchChunks.length > 0 && (
+        {hasSearchChunks && (
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
             <h4 className="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -76,7 +96,7 @@ const GroundingInfo: React.FC<GroundingInfoProps> = ({ data }) => {
         )}
 
         {/* Maps Locations */}
-        {uniqueMapChunks.length > 0 && (
+        {hasMapChunks && (
           <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
             <h4 className="text-xs font-bold text-emerald-700 uppercase mb-3 flex items-center gap-1">
                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -103,6 +123,7 @@ const GroundingInfo: React.FC<GroundingInfoProps> = ({ data }) => {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };

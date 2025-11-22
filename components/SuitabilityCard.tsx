@@ -7,6 +7,9 @@ interface SuitabilityCardProps {
 }
 
 const SuitabilityCard: React.FC<SuitabilityCardProps> = ({ suitability }) => {
+  // Helper to clean text
+  const clean = (text: string) => text.replace(/\*\*/g, '').replace(/\*/g, '').trim();
+
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 h-full flex flex-col">
       <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -29,7 +32,7 @@ const SuitabilityCard: React.FC<SuitabilityCardProps> = ({ suitability }) => {
             <ul className="space-y-2">
               {suitability.contactRisks.map((risk, i) => (
                 <li key={i} className="text-sm text-red-700 leading-relaxed pl-2 border-l-2 border-red-300">
-                  {risk}
+                  {clean(risk)}
                 </li>
               ))}
             </ul>
@@ -51,7 +54,7 @@ const SuitabilityCard: React.FC<SuitabilityCardProps> = ({ suitability }) => {
                   <svg className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  {p}
+                  {clean(p)}
                 </li>
               ))}
             </ul>
@@ -73,7 +76,7 @@ const SuitabilityCard: React.FC<SuitabilityCardProps> = ({ suitability }) => {
                   <svg className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  {c}
+                  {clean(c)}
                 </li>
               ))}
             </ul>

@@ -13,6 +13,9 @@ const SafetyScore: React.FC<SafetyScoreProps> = ({ analysis }) => {
     return 'text-yellow-800 bg-yellow-50 border-yellow-200'; // Cảnh Báo
   };
 
+  // Helper to clean text
+  const clean = (text: string) => text.replace(/\*\*/g, '').replace(/\*/g, '').trim();
+
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 h-full">
       <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -31,7 +34,7 @@ const SafetyScore: React.FC<SafetyScoreProps> = ({ analysis }) => {
 
       <div className="space-y-4">
         <p className="text-base text-gray-800 leading-relaxed font-medium">
-            {analysis.verdict}
+            {clean(analysis.verdict)}
         </p>
         
         {analysis.reasons.length > 0 && (
@@ -46,7 +49,7 @@ const SafetyScore: React.FC<SafetyScoreProps> = ({ analysis }) => {
                     {analysis.reasons.map((reason, idx) => (
                         <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
                             <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-gray-400 flex-shrink-0"></span>
-                            {reason}
+                            {clean(reason)}
                         </li>
                     ))}
                 </ul>

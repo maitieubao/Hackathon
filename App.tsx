@@ -7,6 +7,8 @@ import SuitabilityCard from './components/SuitabilityCard';
 import GroundingInfo from './components/GroundingInfo';
 import ApplicationDraft from './components/ApplicationDraft';
 import CVMatcher from './components/CVMatcher';
+import DefaultLogo from './components/DefaultLogo';
+import MarkdownRenderer from './components/MarkdownRenderer';
 import { AnalysisStatus, AnalysisResult, JobListing, GroundingSource, SearchCriteria } from './types';
 import { 
   searchJobs, 
@@ -31,9 +33,14 @@ const App: React.FC = () => {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [location, setLocation] = useState<GeolocationCoordinates | undefined>(undefined);
+  const [logoError, setLogoError] = useState(false);
   
   // View Mode determines if we are showing list/input or results within the current AppMode
   const [viewMode, setViewMode] = useState<'INPUT' | 'RESULT'>('INPUT');
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [selectedJob]);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -180,7 +187,7 @@ const App: React.FC = () => {
                         </svg>
                     </div>
                     <div>
-                        <h1 className="text-xl font-bold tracking-tight text-white">Antigravity Jobs</h1>
+                        <h1 className="text-xl font-bold tracking-tight text-white">Part-time Pal</h1>
                         <p className="text-xs text-teal-100 hidden sm:block">Trợ lý việc làm thông minh</p>
                     </div>
                 </div>
@@ -310,14 +317,15 @@ const App: React.FC = () => {
                     <div className="flex flex-col md:flex-row gap-6 items-start">
                         {/* Logo */}
                         <div className="flex-shrink-0">
-                            {selectedJob?.logo ? (
-                                <img src={selectedJob.logo} alt={selectedJob.company} className="w-20 h-20 rounded-xl object-contain border border-gray-100 shadow-sm bg-white" />
+                            {selectedJob?.logo && !logoError ? (
+                                <img 
+                                    src={selectedJob.logo} 
+                                    alt={selectedJob.company} 
+                                    className="w-20 h-20 rounded-xl object-contain border border-gray-100 shadow-sm bg-white" 
+                                    onError={() => setLogoError(true)}
+                                />
                             ) : (
-                                <div className="w-20 h-20 rounded-xl bg-gray-50 flex items-center justify-center border border-gray-200 shadow-sm">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                    </svg>
-                                </div>
+                                <DefaultLogo className="w-20 h-20" />
                             )}
                         </div>
                         
@@ -346,7 +354,7 @@ const App: React.FC = () => {
                             </div>
 
                             <div className="prose prose-sm max-w-none text-gray-600">
-                                <p>{selectedJob?.description || "Đang phân tích chi tiết..."}</p>
+                                <MarkdownRenderer content={selectedJob?.description || "Đang phân tích chi tiết..."} />
                             </div>
                         </div>
                     </div>

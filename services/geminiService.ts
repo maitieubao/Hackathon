@@ -27,7 +27,7 @@ export const extractContentFromImage = async (base64Data: string, mimeType: stri
             }
           },
           {
-            text: "Đây là hình ảnh một tin tuyển dụng. Hãy trích xuất toàn bộ nội dung văn bản có trong ảnh. Nếu có các chi tiết hình ảnh đáng ngờ (ví dụ: logo bị lỗi, phông chữ cẩu thả, hình ảnh cắt ghép), hãy mô tả chúng kèm theo nội dung văn bản."
+            text: "Đây là hình ảnh một tin tuyển dụng. Hãy trích xuất toàn bộ nội dung văn bản có trong ảnh. Nếu có các chi tiết hình ảnh đáng ngờ (ví dụ: logo bị lỗi, phông chữ cẩu thả, hình ảnh cắt ghép), hãy mô tả chúng kèm theo nội dung văn bản. QUAN TRỌNG: Trả về văn bản thuần túy, KHÔNG dùng định dạng markdown (như **đậm**, *nghiêng*)."
           }
         ]
       }
@@ -57,6 +57,7 @@ export const extractContentFromUrl = async (url: string): Promise<string> => {
       3. If it is a JOB BOARD (TopCV, VietnamWorks):
          - Extract Title, Company, Salary, Location, and Description.
       4. ALSO: Look for any scam warnings or "bóc phốt" related to this specific URL in the search results.
+      5. IMPORTANT: Return plain text only, NO markdown formatting (no **bold**, no *italics*).
          
       **OUTPUT RULE**: 
       - If you find RELEVANT job information, return the full text description.
@@ -231,7 +232,7 @@ export const quickExtractEntities = async (text: string): Promise<JobEntity> => 
   }
 };
 
-// 2. Deep Scam Analysis (Thinking Model)
+// 2. Deep Scam Analysis (Flash - Replaced Thinking Model for Stability)
 export const analyzeScamRisk = async (text: string): Promise<ScamAnalysis> => {
   try {
     const ai = getAI();
@@ -261,10 +262,9 @@ export const analyzeScamRisk = async (text: string): Promise<ScamAnalysis> => {
     };
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', 
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
-        thinkingConfig: { thinkingBudget: 32768 },
         responseMimeType: "application/json",
         responseSchema: schema,
       }
@@ -273,7 +273,7 @@ export const analyzeScamRisk = async (text: string): Promise<ScamAnalysis> => {
     if (response.text) {
       return JSON.parse(response.text) as ScamAnalysis;
     }
-    throw new Error("Thinking model returned empty text");
+    throw new Error("Model returned empty text");
   } catch (error) {
     console.error("Scam analysis failed:", error);
     return {
@@ -303,42 +303,32 @@ export const verifyCompany = async (text: string, userLocation?: GeolocationCoor
       contents: `
         Hãy thực hiện xác minh đa chiều cho tin tuyển dụng này:
         "${text}"
-
-        Nhiệm vụ tìm kiếm:
-        1. **Xác minh cơ bản**: Công ty có tồn tại không? Địa chỉ có thật trên Google Maps không?
-        2. **Kiểm tra Uy Tín Cộng Đồng (Rất Quan Trọng)**: Hãy tìm kiếm trên các DIỄN ĐÀN (Voz, Tinh tế, ReviewCongTy) và MẠNG XÃ HỘI (Facebook Groups tuyển dụng).
-           - Tìm kiếm các từ khóa: "Tên công ty + lừa đảo", "Tên công ty + phốt", "SĐT + lừa đảo".
-           - Tìm các đánh giá tiêu cực hoặc cảnh báo từ cộng đồng.
         
-        Trả về kết quả dưới dạng văn bản Markdown rõ ràng:
-        - **Xác thực công ty**: (Có thật không, địa chỉ ở đâu)
-        - **Đánh giá cộng đồng**: (Tóm tắt thái độ của mọi người: Có bài "bóc phốt" nào không? Có ai cảnh báo không?)
-        - **Kết luận**: Đáng tin hay Đáng ngờ.
+        Nhiệm vụ:
+        1. Tìm kiếm tên công ty/người tuyển dụng trên Google.
+        2. Kiểm tra xem có phốt lừa đảo nào liên quan đến số điện thoại hoặc địa chỉ này không.
+        3. Tìm địa chỉ trên Google Maps xem có tồn tại thực tế không.
+        
+        Trả về một đoạn văn tổng hợp kết quả xác minh (ngắn gọn, súc tích).
       `,
       config: {
-        tools: [
-          { googleSearch: {} },
-          { googleMaps: {} }
-        ],
-        toolConfig: locationConfig
+        tools: [{ googleSearch: locationConfig }]
       }
     });
 
+    // Extract grounding metadata
     const searchChunks: GroundingSource[] = [];
     const mapChunks: GroundingSource[] = [];
-
+    
     const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-
     if (chunks) {
       chunks.forEach(chunk => {
         if (chunk.web) {
-          searchChunks.push({ uri: chunk.web.uri || '', title: chunk.web.title || 'Nguồn Web' });
+            searchChunks.push({ uri: chunk.web.uri || '', title: chunk.web.title || 'Web Source' });
         }
-        if (chunk.maps) {
-            const uri = chunk.maps.uri || '';
-            const title = chunk.maps.title || 'Địa điểm Maps';
-            mapChunks.push({ uri, title });
-        }
+        // Basic heuristic for map/place results (Gemini grounding structure varies)
+        // For now, we treat all web sources as search chunks.
+        // If the title indicates a map or address, we could categorize it.
       });
     }
 
@@ -373,62 +363,32 @@ export const analyzeSuitabilityAndDraft = async (text: string): Promise<{ suitab
          - Email có khớp với tên công ty?
       3. **Links/Website**:
          - Link rút gọn (bit.ly, tinyurl) - RẤT NGUY HIỂM
-         - Facebook cá nhân vs Fanpage chính thức?
-         - Website công ty có tồn tại?
-      4. **Địa chỉ**:
-         - Có địa chỉ văn phòng cụ thể?
-         - Hay chỉ hẹn gặp tại quán cà phê?
+         - Facebook cá nhân hay Fanpage chính thức?
       
-      **YÊU CẦU VỀ DRAFT XIN VIỆC (QUAN TRỌNG):**
-      Hãy viết một mẫu tin nhắn/email xin việc thật chuyên nghiệp, lịch sự và ấn tượng.
-      - **Tiêu đề (Subject):** Rõ ràng, ví dụ "Ứng tuyển vị trí [Tên vị trí] - [Tên bạn]".
-      - **Nội dung:**
-        - Lời chào trang trọng.
-        - Giới thiệu ngắn gọn: Tên, sinh viên trường nào (để trống cho user điền), chuyên ngành.
-        - Lý do ứng tuyển: Thể hiện sự quan tâm và phù hợp với kỹ năng yêu cầu.
-        - Lời kết và thông tin liên hệ.
-      - Giọng văn: Cầu thị, nghiêm túc nhưng không quá cứng nhắc.
-
       Tin tuyển dụng: "${text}"
       
-      Trả về JSON với phân tích chi tiết.
+      Trả về JSON gồm:
+      - suitability: { skillsRequired: string[], pros: string[], cons: string[], contactRisks: string[], advice: string }
+      - draft: string (Mẫu đơn ứng tuyển chuyên nghiệp, lịch sự, KHÔNG dùng markdown)
     `;
 
     const schema: Schema = {
       type: Type.OBJECT,
       properties: {
         suitability: {
-            type: Type.OBJECT,
-            properties: {
-                skillsRequired: { 
-                  type: Type.ARRAY, 
-                  items: { type: Type.STRING }, 
-                  description: "Kỹ năng cần thiết"
-                },
-                pros: { 
-                  type: Type.ARRAY, 
-                  items: { type: Type.STRING }, 
-                  description: "Ưu điểm của công việc"
-                },
-                cons: { 
-                  type: Type.ARRAY, 
-                  items: { type: Type.STRING }, 
-                  description: "Nhược điểm cần cân nhắc"
-                },
-                contactRisks: { 
-                  type: Type.ARRAY, 
-                  items: { type: Type.STRING }, 
-                  description: "QUAN TRỌNG NHẤT: Phân tích chi tiết rủi ro về SĐT, email, link, địa chỉ đáng ngờ. Nếu không có rủi ro, trả về mảng rỗng []"
-                },
-                advice: { 
-                  type: Type.STRING, 
-                  description: "Lời khuyên tổng hợp về an toàn và quyết định"
-                }
-            },
-            required: ["skillsRequired", "pros", "cons", "contactRisks", "advice"]
+          type: Type.OBJECT,
+          properties: {
+            skillsRequired: { type: Type.ARRAY, items: { type: Type.STRING } },
+            pros: { type: Type.ARRAY, items: { type: Type.STRING } },
+            cons: { type: Type.ARRAY, items: { type: Type.STRING } },
+            contactRisks: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Danh sách các rủi ro cụ thể về SĐT, Email, Link." },
+            advice: { type: Type.STRING }
+          },
+          required: ["skillsRequired", "pros", "cons", "contactRisks", "advice"]
         },
-        draft: { type: Type.STRING, description: "Tin nhắn xin việc mẫu ngắn gọn" }
-      }
+        draft: { type: Type.STRING }
+      },
+      required: ["suitability", "draft"]
     };
 
     const response = await ai.models.generateContent({
@@ -436,13 +396,12 @@ export const analyzeSuitabilityAndDraft = async (text: string): Promise<{ suitab
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: schema
+        responseSchema: schema,
       }
     });
 
     if (response.text) {
-        const data = JSON.parse(response.text);
-        return { suitability: data.suitability, draft: data.draft };
+      return JSON.parse(response.text) as { suitability: SuitabilityAnalysis, draft: string };
     }
     throw new Error("Suitability analysis failed");
   } catch (e) {
@@ -499,7 +458,7 @@ export const analyzeCVMatching = async (jobDescription: string, cvData: { type: 
         matchScore: { type: Type.INTEGER, description: "Điểm số phù hợp (0-100)" },
         pros: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Điểm mạnh khớp với JD" },
         missingSkills: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Kỹ năng còn thiếu" },
-        advice: { type: Type.STRING, description: "Lời khuyên cải thiện" }
+        advice: { type: Type.STRING, description: "Lời khuyên cải thiện CV" }
       },
       required: ["matchScore", "pros", "missingSkills", "advice"]
     };
@@ -507,21 +466,16 @@ export const analyzeCVMatching = async (jobDescription: string, cvData: { type: 
     let requestContent;
 
     if (cvData.type === 'file' && cvData.mimeType) {
-        // Handle PDF/Image CV
         requestContent = {
             contents: [
-                {
-                    role: 'user',
-                    parts: [
-                        { text: `Bạn là chuyên gia tuyển dụng. Hãy so sánh CV (trong file đính kèm) với JD dưới đây.\n\nJD: "${jobDescription}"\n\nPhân tích độ phù hợp, điểm mạnh, điểm yếu và lời khuyên.` },
-                        {
-                            inlineData: {
-                                mimeType: cvData.mimeType,
-                                data: cvData.content // Base64 string
-                            }
-                        }
-                    ]
-                }
+                { role: 'user', parts: [
+                    { text: `Bạn là chuyên gia tuyển dụng. Hãy so sánh CV (trong file đính kèm) với JD dưới đây.
+
+JD: "${jobDescription}"
+
+Phân tích độ phù hợp, điểm mạnh, điểm yếu và lời khuyên.` },
+                    { inlineData: { mimeType: cvData.mimeType, data: cvData.content } }
+                ]}
             ],
             config: {
                 responseMimeType: "application/json",
@@ -529,25 +483,14 @@ export const analyzeCVMatching = async (jobDescription: string, cvData: { type: 
             }
         };
     } else {
-        // Handle Text CV
         requestContent = {
-            contents: `
-              Bạn là một chuyên gia tuyển dụng (HR Manager). Hãy so sánh CV của ứng viên với Mô tả công việc (JD) dưới đây để đánh giá mức độ phù hợp.
+            contents: `Bạn là một chuyên gia tuyển dụng (HR Manager). Hãy so sánh CV dưới đây với yêu cầu công việc (JD) và đánh giá độ phù hợp.
 
-              **Mô tả công việc (JD):**
-              "${jobDescription}"
+JD: "${jobDescription}"
 
-              **Nội dung CV của ứng viên:**
-              "${cvData.content}"
+CV: "${cvData.content}"
 
-              **Yêu cầu phân tích:**
-              1. **Chấm điểm phù hợp (Match Score):** Từ 0 đến 100.
-              2. **Điểm mạnh (Pros):** Những kỹ năng/kinh nghiệm trong CV khớp với JD.
-              3. **Điểm thiếu sót (Missing Skills):** Những yêu cầu quan trọng trong JD mà CV chưa có hoặc chưa làm nổi bật.
-              4. **Lời khuyên (Advice):** Lời khuyên cụ thể để ứng viên cải thiện CV hoặc cách trả lời phỏng vấn để lấp đầy khoảng trống kỹ năng.
-
-              Trả về kết quả dưới dạng JSON.
-            `,
+Hãy trả về kết quả JSON gồm điểm số, điểm mạnh, điểm yếu và lời khuyên cụ thể.`,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: schema

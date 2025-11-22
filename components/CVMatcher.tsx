@@ -16,6 +16,9 @@ const CVMatcher: React.FC<CVMatcherProps> = ({ jobDescription }) => {
   const [result, setResult] = useState<CVAnalysis | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Helper to clean text
+  const clean = (text: string) => text.replace(/\*\*/g, '').replace(/\*/g, '').trim();
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0]);
@@ -218,7 +221,7 @@ const CVMatcher: React.FC<CVMatcherProps> = ({ jobDescription }) => {
               <ul className="space-y-1">
                 {result.pros.map((item, i) => (
                   <li key={i} className="text-xs text-green-700 flex items-start gap-1">
-                    <span>•</span> {item}
+                    <span>•</span> {clean(item)}
                   </li>
                 ))}
               </ul>
@@ -233,7 +236,7 @@ const CVMatcher: React.FC<CVMatcherProps> = ({ jobDescription }) => {
               <ul className="space-y-1">
                 {result.missingSkills.map((item, i) => (
                   <li key={i} className="text-xs text-red-700 flex items-start gap-1">
-                    <span>•</span> {item}
+                    <span>•</span> {clean(item)}
                   </li>
                 ))}
               </ul>

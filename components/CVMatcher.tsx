@@ -39,7 +39,15 @@ const CVMatcher: React.FC<CVMatcherProps> = ({ jobDescription }) => {
         // Process File
         const file = selectedFile!;
         
-        if (file.type === 'application/pdf') {
+        // Check if file is binary (PDF, Word, Image)
+        const isBinary = 
+            file.type === 'application/pdf' || 
+            file.type.includes('image/') ||
+            file.type.includes('word') || 
+            file.name.endsWith('.docx') || 
+            file.name.endsWith('.doc');
+
+        if (isBinary) {
              const reader = new FileReader();
              const base64 = await new Promise<string>((resolve, reject) => {
                 reader.onload = () => {
@@ -156,14 +164,14 @@ const CVMatcher: React.FC<CVMatcherProps> = ({ jobDescription }) => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                           </svg>
                           <p className="text-sm text-gray-500">Nhấn để chọn file</p>
-                          <p className="text-xs text-gray-400 mt-1">Hỗ trợ: PDF, TXT, MD, CSV</p>
+                          <p className="text-xs text-gray-400 mt-1">Hỗ trợ: PDF, DOCX, DOC, ảnh (JPG/PNG)</p>
                       </div>
                   )}
                   <input 
                     type="file" 
                     ref={fileInputRef} 
                     className="hidden" 
-                    accept=".pdf,.txt,.md,.csv,.json" 
+                    accept=".pdf,.txt,.md,.csv,.json,.docx,.doc,.rtf,.png,.jpg,.jpeg" 
                     onChange={handleFileChange}
                   />
               </div>

@@ -7,11 +7,14 @@ interface GroundingInfoProps {
 
 const GroundingInfo: React.FC<GroundingInfoProps> = ({ data }) => {
   
-  // Helper to format Markdown text (Bold, Lists)
+  // Helper to format Markdown text (Bold, Lists) and remove citation markers
   const formatText = (text: string) => {
     if (!text) return null;
     
-    return text.split('\n').map((line, index) => {
+    // Remove citation markers like [5, 6, 7, 9 in search 1]
+    const cleanText = text.replace(/\[.*?in search.*?\]/g, '');
+
+    return cleanText.split('\n').map((line, index) => {
       if (!line.trim()) return <div key={index} className="h-2"></div>;
       
       let formattedContent: React.ReactNode[] = [];
@@ -47,6 +50,9 @@ const GroundingInfo: React.FC<GroundingInfoProps> = ({ data }) => {
       return <p key={index} className="mb-2 text-gray-700 leading-relaxed text-sm">{formattedContent}</p>;
     });
   };
+
+  // Deduplicate map chunks based on URI
+  const uniqueMapChunks = Array.from(new Map(data.mapChunks.map(chunk => [chunk.uri, chunk])).values());
 
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mt-6">
@@ -95,7 +101,7 @@ const GroundingInfo: React.FC<GroundingInfoProps> = ({ data }) => {
         )}
 
         {/* Maps Locations */}
-        {data.mapChunks.length > 0 && (
+        {uniqueMapChunks.length > 0 && (
           <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
             <h4 className="text-xs font-bold text-emerald-700 uppercase mb-3 flex items-center gap-1">
                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -105,7 +111,7 @@ const GroundingInfo: React.FC<GroundingInfoProps> = ({ data }) => {
               Địa Điểm Thực Tế
             </h4>
             <ul className="space-y-2">
-              {data.mapChunks.slice(0, 3).map((chunk, i) => (
+              {uniqueMapChunks.slice(0, 3).map((chunk, i) => (
                 <li key={i} className="flex items-start gap-2">
                    <span className="text-emerald-400 text-xs mt-1">•</span>
                   <a 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { JobListing } from '../types';
 
 interface JobCardProps {
@@ -7,29 +7,35 @@ interface JobCardProps {
 }
 
 const JobCard: React.FC<JobCardProps> = ({ job, onApply }) => {
-  // Generate a random color for the logo placeholder based on company name
-  const getLogoColor = (name: string) => {
-    const colors = ['bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-teal-500', 'bg-rose-500', 'bg-orange-500'];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
-  };
+  const [imgError, setImgError] = useState(false);
 
-  const logoColor = getLogoColor(job.company);
-  const initial = job.company.charAt(0).toUpperCase();
+  // Default Logo Component (Building Icon) - Used when no logo is available
+  const DefaultLogo = () => (
+    <div className="w-16 h-16 rounded-lg bg-gray-50 flex items-center justify-center border border-gray-200 shadow-sm">
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    </div>
+  );
+
+  // Determine if we should show the image
+  // Show image if: job.logo exists AND no error has occurred
+  // Note: We no longer fallback to UI Avatars. We fallback to DefaultLogo.
+  const shouldShowImage = job.logo && !imgError;
 
   return (
     <div className="group bg-white rounded-lg border border-gray-200 p-5 hover:border-blue-400 hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row gap-4 items-start">
       {/* Logo */}
       <div className="flex-shrink-0">
-        {job.logo ? (
-             <img src={job.logo} alt={job.company} className="w-16 h-16 rounded-lg object-contain border border-gray-100 shadow-sm bg-white" />
+        {shouldShowImage ? (
+             <img 
+                src={job.logo} 
+                alt={job.company} 
+                onError={() => setImgError(true)}
+                className="w-16 h-16 rounded-lg object-contain border border-gray-100 shadow-sm bg-white" 
+             />
         ) : (
-            <div className={`w-16 h-16 rounded-lg ${logoColor} flex items-center justify-center text-white font-bold text-2xl shadow-sm`}>
-                {initial}
-            </div>
+            <DefaultLogo />
         )}
       </div>
 

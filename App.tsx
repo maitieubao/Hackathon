@@ -6,6 +6,7 @@ import SafetyScore from './components/SafetyScore';
 import SuitabilityCard from './components/SuitabilityCard';
 import GroundingInfo from './components/GroundingInfo';
 import ApplicationDraft from './components/ApplicationDraft';
+import CVMatcher from './components/CVMatcher';
 import { AnalysisStatus, AnalysisResult, JobListing, GroundingSource, SearchCriteria } from './types';
 import { 
   searchJobs, 
@@ -87,7 +88,8 @@ const App: React.FC = () => {
          location: '...',
          salary: '...',
          description: 'Đang xử lý dữ liệu đầu vào...',
-         source: 'User Input'
+         source: 'User Input',
+         logo: '' // Empty logo triggers default icon
      });
 
      let textToAnalyze = "";
@@ -309,10 +311,12 @@ const App: React.FC = () => {
                         {/* Logo */}
                         <div className="flex-shrink-0">
                             {selectedJob?.logo ? (
-                                <img src={selectedJob.logo} alt={selectedJob.company} className="w-20 h-20 rounded-xl object-contain border border-gray-100 shadow-sm" />
+                                <img src={selectedJob.logo} alt={selectedJob.company} className="w-20 h-20 rounded-xl object-contain border border-gray-100 shadow-sm bg-white" />
                             ) : (
-                                <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-2xl font-bold text-gray-400 border border-gray-100">
-                                    {selectedJob?.company?.charAt(0) || "?"}
+                                <div className="w-20 h-20 rounded-xl bg-gray-50 flex items-center justify-center border border-gray-200 shadow-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                    </svg>
                                 </div>
                             )}
                         </div>
@@ -368,6 +372,11 @@ const App: React.FC = () => {
                         
                         {result.applicationDraft && (
                             <ApplicationDraft draft={result.applicationDraft} />
+                        )}
+
+                        {/* CV Matcher Feature */}
+                        {selectedJob && selectedJob.description && (
+                             <CVMatcher jobDescription={selectedJob.description} />
                         )}
                     </>
                 ) : null}

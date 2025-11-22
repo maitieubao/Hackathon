@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { JobEntity, ScamAnalysis, SuitabilityAnalysis, GroundingData, GroundingSource, JobListing, SearchCriteria } from "../types";
+import { JobEntity, ScamAnalysis, SuitabilityAnalysis, GroundingData, GroundingSource, JobListing, SearchCriteria, CVAnalysis } from "../types";
 
 // Lazy initialization to prevent crash on load if env var is missing
 const getAI = () => {
@@ -112,6 +112,7 @@ export const searchJobs = async (criteria: SearchCriteria, userLocation?: Geoloc
       
       Title: [Job Title]
       Company: [Company Name]
+      Domain: [Company Website Domain, e.g., 'vinamilk.com.vn', 'shopee.vn', 'highlandscoffee.com.vn'. If not found, leave blank]
       Location: [Location]
       Salary: [Salary]
       Description: [Short summary of the job (approx 2 sentences)]
@@ -152,6 +153,7 @@ export const searchJobs = async (criteria: SearchCriteria, userLocation?: Geoloc
 
       const titleMatch = raw.match(/Title:\s*(.+)/);
       const companyMatch = raw.match(/Company:\s*(.+)/);
+      const domainMatch = raw.match(/Domain:\s*(.+)/);
       const locationMatch = raw.match(/Location:\s*(.+)/);
       const salaryMatch = raw.match(/Salary:\s*(.+)/);
       const descMatch = raw.match(/Description:\s*(.+)/);
@@ -159,8 +161,18 @@ export const searchJobs = async (criteria: SearchCriteria, userLocation?: Geoloc
 
       if (titleMatch) {
         const companyName = companyMatch ? companyMatch[1].trim() : "Đang cập nhật";
-        const encodedName = encodeURIComponent(companyName);
-        const logoUrl = `https://ui-avatars.com/api/?name=${encodedName}&background=random&color=fff&size=128&bold=true&font-size=0.5`;
+        const domain = domainMatch ? domainMatch[1].trim() : "";
+        
+        // Logo Strategy:
+        // 1. Try Clearbit API if we have a domain
+        // 2. Fallback to UI Avatars if no domain
+        let logoUrl = "";
+        if (domain && domain.length > 3 && !domain.includes("facebook.com") && !domain.includes("google.com")) {
+             logoUrl = `https://logo.clearbit.com/${domain}`;
+        } else {
+             // Use empty string to trigger DefaultLogo in JobCard
+             logoUrl = ""; 
+        }
 
         jobs.push({
           id: `job-${index}-${Date.now()}`,
@@ -331,8 +343,12 @@ export const verifyCompany = async (text: string, userLocation?: GeolocationCoor
       });
     }
 
+    // Clean citation markers from text (e.g., [1, 2 in search 1])
+    const rawText = response.text || "Không tìm thấy thông tin xác minh cụ thể trên mạng.";
+    const cleanText = rawText.replace(/\[.*?in search.*?\]/g, '');
+
     return {
-      verificationText: response.text || "Không tìm thấy thông tin xác minh cụ thể trên mạng.",
+      verificationText: cleanText,
       searchChunks,
       mapChunks
     };
@@ -366,6 +382,16 @@ export const analyzeSuitabilityAndDraft = async (text: string): Promise<{ suitab
          - Có địa chỉ văn phòng cụ thể?
          - Hay chỉ hẹn gặp tại quán cà phê?
       
+      **YÊU CẦU VỀ DRAFT XIN VIỆC (QUAN TRỌNG):**
+      Hãy viết một mẫu tin nhắn/email xin việc thật chuyên nghiệp, lịch sự và ấn tượng.
+      - **Tiêu đề (Subject):** Rõ ràng, ví dụ "Ứng tuyển vị trí [Tên vị trí] - [Tên bạn]".
+      - **Nội dung:**
+        - Lời chào trang trọng.
+        - Giới thiệu ngắn gọn: Tên, sinh viên trường nào (để trống cho user điền), chuyên ngành.
+        - Lý do ứng tuyển: Thể hiện sự quan tâm và phù hợp với kỹ năng yêu cầu.
+        - Lời kết và thông tin liên hệ.
+      - Giọng văn: Cầu thị, nghiêm túc nhưng không quá cứng nhắc.
+
       Tin tuyển dụng: "${text}"
       
       Trả về JSON với phân tích chi tiết.
@@ -434,5 +460,62 @@ export const analyzeSuitabilityAndDraft = async (text: string): Promise<{ suitab
           },
           draft: ""
       }
+  }
+};
+
+// 5. CV Matching Analysis (Flash)
+export const analyzeCVMatching = async (jobDescription: string, cvContent: string): Promise<CVAnalysis> => {
+  try {
+    const ai = getAI();
+    const prompt = `
+      Bạn là một chuyên gia tuyển dụng (HR Manager). Hãy so sánh CV của ứng viên với Mô tả công việc (JD) dưới đây để đánh giá mức độ phù hợp.
+
+      **Mô tả công việc (JD):**
+      "${jobDescription}"
+
+      **Nội dung CV của ứng viên:**
+      "${cvContent}"
+
+      **Yêu cầu phân tích:**
+      1. **Chấm điểm phù hợp (Match Score):** Từ 0 đến 100.
+      2. **Điểm mạnh (Pros):** Những kỹ năng/kinh nghiệm trong CV khớp với JD.
+      3. **Điểm thiếu sót (Missing Skills):** Những yêu cầu quan trọng trong JD mà CV chưa có hoặc chưa làm nổi bật.
+      4. **Lời khuyên (Advice):** Lời khuyên cụ thể để ứng viên cải thiện CV hoặc cách trả lời phỏng vấn để lấp đầy khoảng trống kỹ năng.
+
+      Trả về kết quả dưới dạng JSON.
+    `;
+
+    const schema: Schema = {
+      type: Type.OBJECT,
+      properties: {
+        matchScore: { type: Type.INTEGER, description: "Điểm số phù hợp (0-100)" },
+        pros: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Điểm mạnh khớp với JD" },
+        missingSkills: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Kỹ năng còn thiếu" },
+        advice: { type: Type.STRING, description: "Lời khuyên cải thiện" }
+      },
+      required: ["matchScore", "pros", "missingSkills", "advice"]
+    };
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: schema
+      }
+    });
+
+    if (response.text) {
+      return JSON.parse(response.text) as CVAnalysis;
+    }
+    throw new Error("CV Analysis failed");
+  } catch (error) {
+    console.error("CV Analysis error:", error);
+    return {
+      matchScore: 0,
+      pros: [],
+      missingSkills: ["Lỗi phân tích. Vui lòng thử lại."],
+      advice: "Không thể phân tích CV lúc này."
+    };
   }
 };

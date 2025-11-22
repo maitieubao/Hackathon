@@ -1,0 +1,7 @@
+{
+  "name": "Part-time Pal",
+  "description": "Công cụ phân tích việc làm thông minh giúp sinh viên tránh lừa đảo và ứng tuyển hiệu quả.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

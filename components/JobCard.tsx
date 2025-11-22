@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { JobListing } from '../types';
+import DefaultLogo from './DefaultLogo';
 
 interface JobCardProps {
   job: JobListing;
@@ -8,23 +9,16 @@ interface JobCardProps {
 
 const JobCard: React.FC<JobCardProps> = ({ job, onApply }) => {
   const [imgError, setImgError] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
-  // Default Logo Component (Building Icon) - Used when no logo is available
-  const DefaultLogo = () => (
-    <div className="w-16 h-16 rounded-lg bg-gray-50 flex items-center justify-center border border-gray-200 shadow-sm">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-      </svg>
-    </div>
-  );
-
-  // Determine if we should show the image
-  // Show image if: job.logo exists AND no error has occurred
-  // Note: We no longer fallback to UI Avatars. We fallback to DefaultLogo.
   const shouldShowImage = job.logo && !imgError;
 
   return (
-    <div className="group bg-white rounded-lg border border-gray-200 p-5 hover:border-blue-400 hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row gap-4 items-start">
+    <div 
+      className="group relative bg-white rounded-lg border border-gray-200 p-5 hover:border-blue-400 hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row gap-4 items-start"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       {/* Logo */}
       <div className="flex-shrink-0">
         {shouldShowImage ? (
@@ -74,6 +68,31 @@ const JobCard: React.FC<JobCardProps> = ({ job, onApply }) => {
           Xem chi tiết
         </button>
       </div>
+
+      {/* Hover Preview Tooltip */}
+      {isHovered && (
+           <div className="absolute z-50 left-0 top-full mt-2 w-full bg-white rounded-xl shadow-2xl border border-gray-200 p-4 animate-fade-in-up pointer-events-none md:pointer-events-auto">
+               <div className="flex justify-between items-start mb-2">
+                   <h4 className="font-bold text-gray-900 text-sm">{job.title}</h4>
+                   {job.link && (
+                       <a 
+                         href={job.link} 
+                         target="_blank" 
+                         rel="noopener noreferrer"
+                         className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1 flex-shrink-0 bg-blue-50 px-2 py-1 rounded"
+                         onClick={(e) => e.stopPropagation()} 
+                       >
+                           Nguồn gốc
+                           <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                           </svg>
+                       </a>
+                   )}
+               </div>
+               <p className="text-xs text-gray-600 line-clamp-4 leading-relaxed mb-2">{job.description}</p>
+               <div className="text-xs text-gray-400">Nguồn: {job.source}</div>
+           </div>
+       )}
     </div>
   );
 };

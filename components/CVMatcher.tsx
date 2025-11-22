@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { analyzeCVMatching } from '../services/geminiService';
 import { CVAnalysis } from '../types';
+import MarkdownRenderer from './MarkdownRenderer';
 
 interface CVMatcherProps {
   jobDescription: string;
@@ -8,15 +9,66 @@ interface CVMatcherProps {
 
 const CVMatcher: React.FC<CVMatcherProps> = ({ jobDescription }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'text' | 'file'>('text');
   const [cvText, setCvText] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<CVAnalysis | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
 
   const handleAnalyze = async () => {
-    if (!cvText.trim()) return;
+    if (activeTab === 'text' && !cvText.trim()) return;
+    if (activeTab === 'file' && !selectedFile) return;
+
     setIsAnalyzing(true);
     try {
-      const analysis = await analyzeCVMatching(jobDescription, cvText);
+      let analysis: CVAnalysis;
+      
+      if (activeTab === 'text') {
+        analysis = await analyzeCVMatching(jobDescription, { type: 'text', content: cvText });
+      } else {
+        // Process File
+        const file = selectedFile!;
+        
+        if (file.type === 'application/pdf') {
+             const reader = new FileReader();
+             const base64 = await new Promise<string>((resolve, reject) => {
+                reader.onload = () => {
+                    const result = reader.result as string;
+                    const base64Data = result.split(',')[1];
+                    resolve(base64Data);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+             });
+
+             analysis = await analyzeCVMatching(jobDescription, { 
+                type: 'file', 
+                content: base64, 
+                mimeType: file.type 
+             });
+        } else {
+             // Read as Text for txt, md, csv, json
+             const textContent = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsText(file);
+             });
+             
+             analysis = await analyzeCVMatching(jobDescription, { 
+                type: 'text', 
+                content: textContent
+             });
+        }
+      }
+      
       setResult(analysis);
     } catch (error) {
       console.error(error);
@@ -59,20 +111,66 @@ const CVMatcher: React.FC<CVMatcherProps> = ({ jobDescription }) => {
 
       {!result ? (
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Dán nội dung CV của bạn vào bên dưới để AI phân tích mức độ phù hợp với công việc này.
-          </p>
-          <textarea
-            value={cvText}
-            onChange={(e) => setCvText(e.target.value)}
-            placeholder="Kinh nghiệm làm việc: ... Kỹ năng: ..."
-            className="w-full h-40 p-4 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none resize-none text-sm"
-          />
+          {/* Tabs */}
+          <div className="flex gap-4 border-b border-gray-100 pb-2">
+              <button 
+                onClick={() => setActiveTab('text')}
+                className={`pb-2 text-sm font-medium transition-colors ${activeTab === 'text' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                  Nhập văn bản
+              </button>
+              <button 
+                onClick={() => setActiveTab('file')}
+                className={`pb-2 text-sm font-medium transition-colors ${activeTab === 'file' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                  Tải file lên
+              </button>
+          </div>
+
+          {activeTab === 'text' ? (
+              <textarea
+                value={cvText}
+                onChange={(e) => setCvText(e.target.value)}
+                placeholder="Dán nội dung CV của bạn vào đây..."
+                className="w-full h-40 p-4 rounded-xl border border-gray-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none resize-none text-sm"
+              />
+          ) : (
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl h-40 flex flex-col items-center justify-center cursor-pointer transition-all ${selectedFile ? 'border-purple-500 bg-purple-50' : 'border-gray-300 hover:border-purple-400 hover:bg-gray-50'}`}
+              >
+                  {selectedFile ? (
+                      <div className="text-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-purple-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <p className="text-sm font-medium text-purple-700">{selectedFile.name}</p>
+                          <p className="text-xs text-gray-500">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                  ) : (
+                      <div className="text-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gray-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          <p className="text-sm text-gray-500">Nhấn để chọn file</p>
+                          <p className="text-xs text-gray-400 mt-1">Hỗ trợ: PDF, TXT, MD, CSV</p>
+                      </div>
+                  )}
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept=".pdf,.txt,.md,.csv,.json" 
+                    onChange={handleFileChange}
+                  />
+              </div>
+          )}
+
           <button
             onClick={handleAnalyze}
-            disabled={isAnalyzing || !cvText.trim()}
+            disabled={isAnalyzing || (activeTab === 'text' ? !cvText.trim() : !selectedFile)}
             className={`w-full py-3 rounded-xl font-bold text-white transition-all ${
-              isAnalyzing || !cvText.trim()
+              isAnalyzing || (activeTab === 'text' ? !cvText.trim() : !selectedFile)
                 ? 'bg-gray-300 cursor-not-allowed'
                 : 'bg-purple-600 hover:bg-purple-700 shadow-md hover:shadow-lg'
             }`}
@@ -145,14 +243,10 @@ const CVMatcher: React.FC<CVMatcherProps> = ({ jobDescription }) => {
           {/* Advice */}
           <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
             <h4 className="text-sm font-bold text-blue-800 mb-2">💡 Lời khuyên từ AI</h4>
-            <p className="text-sm text-blue-700 italic leading-relaxed">
-              {result.advice}
-            </p>
+            <MarkdownRenderer content={result.advice} className="text-sm text-blue-700 italic leading-relaxed" />
           </div>
           
-          <button onClick={() => setResult(null)} className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 underline">
-            Phân tích lại
-          </button>
+          {/* Removed 'Analyze Again' button as requested for definitive results */}
         </div>
       )}
     </div>

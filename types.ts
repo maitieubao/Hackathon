@@ -40,6 +40,7 @@ export interface JobListing {
   description: string;
   source: string;
   logo?: string; // URL to company logo
+  link?: string; // Direct link to job posting
 }
 
 export interface SearchCriteria {

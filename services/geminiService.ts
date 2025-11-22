@@ -117,6 +117,7 @@ export const searchJobs = async (criteria: SearchCriteria, userLocation?: Geoloc
       Salary: [Salary]
       Description: [Short summary of the job (approx 2 sentences)]
       Source: [Source Name]
+      Link: [Direct URL to the job posting. If not found, leave blank]
       
       ---JOB_SEPARATOR---
       
@@ -158,6 +159,7 @@ export const searchJobs = async (criteria: SearchCriteria, userLocation?: Geoloc
       const salaryMatch = raw.match(/Salary:\s*(.+)/);
       const descMatch = raw.match(/Description:\s*(.+)/);
       const sourceMatch = raw.match(/Source:\s*(.+)/);
+      const linkMatch = raw.match(/Link:\s*(.+)/);
 
       if (titleMatch) {
         const companyName = companyMatch ? companyMatch[1].trim() : "Đang cập nhật";
@@ -165,12 +167,11 @@ export const searchJobs = async (criteria: SearchCriteria, userLocation?: Geoloc
         
         // Logo Strategy:
         // 1. Try Clearbit API if we have a domain
-        // 2. Fallback to UI Avatars if no domain
+        // 2. Fallback to DefaultLogo (empty string)
         let logoUrl = "";
         if (domain && domain.length > 3 && !domain.includes("facebook.com") && !domain.includes("google.com")) {
              logoUrl = `https://logo.clearbit.com/${domain}`;
         } else {
-             // Use empty string to trigger DefaultLogo in JobCard
              logoUrl = ""; 
         }
 
@@ -182,6 +183,7 @@ export const searchJobs = async (criteria: SearchCriteria, userLocation?: Geoloc
           salary: salaryMatch ? salaryMatch[1].trim() : "Thỏa thuận",
           description: descMatch ? descMatch[1].trim() : "",
           source: sourceMatch ? sourceMatch[1].trim() : "Google Search",
+          link: linkMatch ? linkMatch[1].trim() : "",
           logo: logoUrl
         });
       }
@@ -196,7 +198,6 @@ export const searchJobs = async (criteria: SearchCriteria, userLocation?: Geoloc
 };
 
 // 1. Fast Extraction (Flash)
-// Extract basic info extremely fast to show the user we understood the input.
 export const quickExtractEntities = async (text: string): Promise<JobEntity> => {
   try {
     const ai = getAI();
@@ -231,7 +232,6 @@ export const quickExtractEntities = async (text: string): Promise<JobEntity> => 
 };
 
 // 2. Deep Scam Analysis (Thinking Model)
-// Use heavy reasoning to detect subtle scam patterns.
 export const analyzeScamRisk = async (text: string): Promise<ScamAnalysis> => {
   try {
     const ai = getAI();
@@ -261,10 +261,10 @@ export const analyzeScamRisk = async (text: string): Promise<ScamAnalysis> => {
     };
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', // Using Pro with Thinking for deep analysis
+      model: 'gemini-3-pro-preview', 
       contents: prompt,
       config: {
-        thinkingConfig: { thinkingBudget: 32768 }, // High thinking budget for safety
+        thinkingConfig: { thinkingBudget: 32768 },
         responseMimeType: "application/json",
         responseSchema: schema,
       }
@@ -286,7 +286,6 @@ export const analyzeScamRisk = async (text: string): Promise<ScamAnalysis> => {
 };
 
 // 3. Verification & Social Reputation Check (Flash + Tools)
-// Verify company existence and check reputation on Forums/Social Media.
 export const verifyCompany = async (text: string, userLocation?: GeolocationCoordinates): Promise<GroundingData> => {
   try {
     const ai = getAI();
@@ -343,7 +342,6 @@ export const verifyCompany = async (text: string, userLocation?: GeolocationCoor
       });
     }
 
-    // Clean citation markers from text (e.g., [1, 2 in search 1])
     const rawText = response.text || "Không tìm thấy thông tin xác minh cụ thể trên mạng.";
     const cleanText = rawText.replace(/\[.*?in search.*?\]/g, '');
 
@@ -360,7 +358,6 @@ export const verifyCompany = async (text: string, userLocation?: GeolocationCoor
 };
 
 // 4. Suitability & Application Draft (Flash)
-// Focus on contact risk analysis and practical advice
 export const analyzeSuitabilityAndDraft = async (text: string): Promise<{ suitability: SuitabilityAnalysis, draft: string }> => {
   try {
     const ai = getAI();
@@ -463,28 +460,39 @@ export const analyzeSuitabilityAndDraft = async (text: string): Promise<{ suitab
   }
 };
 
-// 5. CV Matching Analysis (Flash)
-export const analyzeCVMatching = async (jobDescription: string, cvContent: string): Promise<CVAnalysis> => {
+// 4.5 Generate Draft Only
+export const generateDraft = async (jobDescription: string): Promise<string> => {
   try {
     const ai = getAI();
     const prompt = `
-      Bạn là một chuyên gia tuyển dụng (HR Manager). Hãy so sánh CV của ứng viên với Mô tả công việc (JD) dưới đây để đánh giá mức độ phù hợp.
-
-      **Mô tả công việc (JD):**
+      Hãy viết một mẫu tin nhắn/email xin việc thật chuyên nghiệp, lịch sự và ấn tượng cho công việc sau:
       "${jobDescription}"
-
-      **Nội dung CV của ứng viên:**
-      "${cvContent}"
-
-      **Yêu cầu phân tích:**
-      1. **Chấm điểm phù hợp (Match Score):** Từ 0 đến 100.
-      2. **Điểm mạnh (Pros):** Những kỹ năng/kinh nghiệm trong CV khớp với JD.
-      3. **Điểm thiếu sót (Missing Skills):** Những yêu cầu quan trọng trong JD mà CV chưa có hoặc chưa làm nổi bật.
-      4. **Lời khuyên (Advice):** Lời khuyên cụ thể để ứng viên cải thiện CV hoặc cách trả lời phỏng vấn để lấp đầy khoảng trống kỹ năng.
-
-      Trả về kết quả dưới dạng JSON.
+      
+      Yêu cầu:
+      - Tiêu đề (Subject): Rõ ràng.
+      - Nội dung: Lời chào, giới thiệu ngắn, lý do ứng tuyển, lời kết.
+      - Giọng văn: Cầu thị, nghiêm túc.
+      - KHÔNG dùng các ký hiệu markdown như ** hay ## trong nội dung email, chỉ dùng văn bản thuần túy để người dùng dễ copy.
+      
+      Trả về nội dung email/tin nhắn hoàn chỉnh.
     `;
 
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt
+    });
+
+    return response.text || "Không thể tạo bản nháp. Vui lòng thử lại.";
+  } catch (error) {
+    console.error("Draft generation failed:", error);
+    return "Lỗi khi tạo bản nháp.";
+  }
+};
+
+// 5. CV Matching Analysis (Flash)
+export const analyzeCVMatching = async (jobDescription: string, cvData: { type: 'text' | 'file', content: string, mimeType?: string }): Promise<CVAnalysis> => {
+  try {
+    const ai = getAI();
     const schema: Schema = {
       type: Type.OBJECT,
       properties: {
@@ -496,13 +504,61 @@ export const analyzeCVMatching = async (jobDescription: string, cvContent: strin
       required: ["matchScore", "pros", "missingSkills", "advice"]
     };
 
+    let requestContent;
+
+    if (cvData.type === 'file' && cvData.mimeType) {
+        // Handle PDF/Image CV
+        requestContent = {
+            contents: [
+                {
+                    role: 'user',
+                    parts: [
+                        { text: `Bạn là chuyên gia tuyển dụng. Hãy so sánh CV (trong file đính kèm) với JD dưới đây.\n\nJD: "${jobDescription}"\n\nPhân tích độ phù hợp, điểm mạnh, điểm yếu và lời khuyên.` },
+                        {
+                            inlineData: {
+                                mimeType: cvData.mimeType,
+                                data: cvData.content // Base64 string
+                            }
+                        }
+                    ]
+                }
+            ],
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: schema
+            }
+        };
+    } else {
+        // Handle Text CV
+        requestContent = {
+            contents: `
+              Bạn là một chuyên gia tuyển dụng (HR Manager). Hãy so sánh CV của ứng viên với Mô tả công việc (JD) dưới đây để đánh giá mức độ phù hợp.
+
+              **Mô tả công việc (JD):**
+              "${jobDescription}"
+
+              **Nội dung CV của ứng viên:**
+              "${cvData.content}"
+
+              **Yêu cầu phân tích:**
+              1. **Chấm điểm phù hợp (Match Score):** Từ 0 đến 100.
+              2. **Điểm mạnh (Pros):** Những kỹ năng/kinh nghiệm trong CV khớp với JD.
+              3. **Điểm thiếu sót (Missing Skills):** Những yêu cầu quan trọng trong JD mà CV chưa có hoặc chưa làm nổi bật.
+              4. **Lời khuyên (Advice):** Lời khuyên cụ thể để ứng viên cải thiện CV hoặc cách trả lời phỏng vấn để lấp đầy khoảng trống kỹ năng.
+
+              Trả về kết quả dưới dạng JSON.
+            `,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: schema
+            }
+        };
+    }
+
+    // @ts-ignore
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: schema
-      }
+      ...requestContent
     });
 
     if (response.text) {

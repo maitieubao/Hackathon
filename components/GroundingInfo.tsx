@@ -1,5 +1,6 @@
 import React from 'react';
 import { GroundingData } from '../types';
+import MarkdownRenderer from './MarkdownRenderer';
 
 interface GroundingInfoProps {
   data: GroundingData;
@@ -7,52 +8,26 @@ interface GroundingInfoProps {
 
 const GroundingInfo: React.FC<GroundingInfoProps> = ({ data }) => {
   
-  // Helper to format Markdown text (Bold, Lists) and remove citation markers
-  const formatText = (text: string) => {
-    if (!text) return null;
+  // Clean citation markers from text
+  const cleanCitations = (text: string): string => {
+    if (!text) return '';
     
-    // Remove citation markers like [5, 6, 7, 9 in search 1]
-    const cleanText = text.replace(/\[.*?in search.*?\]/g, '');
-
-    return cleanText.split('\n').map((line, index) => {
-      if (!line.trim()) return <div key={index} className="h-2"></div>;
-      
-      let formattedContent: React.ReactNode[] = [];
-      
-      // Parse **bold**
-      const parts = line.split(/(\*\*.*?\*\*)/g);
-      formattedContent = parts.map((part, i) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return <strong key={i} className="text-indigo-900 font-bold">{part.slice(2, -2)}</strong>;
-        } else if (part.startsWith('* ') || part.startsWith('- ')) {
-             return <span key={i}>{part.substring(2)}</span>; 
-        }
-        return <span key={i}>{part}</span>;
-      });
-
-      // Render list items with bullet
-      if (line.trim().startsWith('* ') || line.trim().startsWith('- ')) {
-          return (
-              <div key={index} className="flex items-start gap-2 mb-2 ml-3">
-                  <span className="mt-2 w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0"></span>
-                  <p className="text-gray-700 leading-relaxed text-sm">
-                     {formattedContent}
-                  </p>
-              </div>
-          )
-      }
-
-      // Render Headers (Lines starting with ## or "Title:") roughly
-      if (line.includes('Xác thực công ty') || line.includes('Đánh giá cộng đồng') || line.includes('Kết luận')) {
-          return <h4 key={index} className="text-indigo-700 font-bold mt-3 mb-1 uppercase text-xs tracking-wider">{line.replace(/\*\*/g, '')}</h4>
-      }
-
-      return <p key={index} className="mb-2 text-gray-700 leading-relaxed text-sm">{formattedContent}</p>;
-    });
+    // Remove various citation formats:
+    // [First tool output], [Second tool output: 1, 2, 3], [in search 1], etc.
+    return text
+      .replace(/\[First tool output[^\]]*\]/g, '')
+      .replace(/\[Second tool output[^\]]*\]/g, '')
+      .replace(/\[Third tool output[^\]]*\]/g, '')
+      .replace(/\[.*?in search.*?\]/g, '')
+      .replace(/\[\d+(?:,\s*\d+)*\]/g, '') // Remove [1, 2, 3]
+      .trim();
   };
 
   // Deduplicate map chunks based on URI
   const uniqueMapChunks = Array.from(new Map(data.mapChunks.map(chunk => [chunk.uri, chunk])).values());
+
+  // Clean the verification text
+  const cleanedText = cleanCitations(data.verificationText);
 
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mt-6">
@@ -67,7 +42,7 @@ const GroundingInfo: React.FC<GroundingInfoProps> = ({ data }) => {
 
       {/* Main Verification Text */}
       <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl p-5 border border-indigo-100 mb-6">
-         {formatText(data.verificationText)}
+         <MarkdownRenderer content={cleanedText} className="text-sm text-gray-700 leading-relaxed" />
       </div>
 
       {/* Sources Grid */}

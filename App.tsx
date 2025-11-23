@@ -131,6 +131,7 @@ const App: React.FC = () => {
      }
   };
 
+
   const runAnalysis = async (text: string) => {
     setViewMode('RESULT');
     setStatus(AnalysisStatus.ANALYZING);
@@ -175,31 +176,31 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen pb-12 bg-gray-50 font-sans text-gray-900">
+    <div className="min-h-screen pb-16 bg-gradient-to-b from-teal-50 to-white font-sans text-gray-900">
       {/* Header & Navigation - Added Gradient */}
-      <header className="bg-gradient-to-r from-teal-600 to-blue-600 shadow-md sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4">
-            <div className="flex items-center justify-between py-4">
+      <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-6">
+            <div className="flex items-center justify-between py-5">
                 <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setAppMode('FIND_JOBS'); setViewMode('INPUT'); }}>
-                    <div className="bg-white/20 backdrop-blur-sm p-2 rounded-lg">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="bg-teal-100 p-2 rounded-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
                     </div>
                     <div>
-                        <h1 className="text-xl font-bold tracking-tight text-white">Part-time Pal</h1>
-                        <p className="text-xs text-teal-100 hidden sm:block">Trợ lý việc làm thông minh</p>
+                        <h1 className="text-xl font-bold tracking-tight text-teal-800">Part-time Pal</h1>
+                        <p className="text-xs text-teal-600 hidden sm:block">Trợ lý việc làm thông minh</p>
                     </div>
                 </div>
 
                 {/* Mode Toggle Tabs */}
-                <div className="flex bg-white/10 p-1 rounded-lg backdrop-blur-sm">
+                <div className="flex bg-gray-100 p-1 rounded-lg">
                     <button 
                         onClick={() => { setAppMode('FIND_JOBS'); setViewMode('INPUT'); setError(null); }}
                         className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                             appMode === 'FIND_JOBS' 
                             ? 'bg-white text-teal-700 shadow-sm' 
-                            : 'text-teal-100 hover:text-white hover:bg-white/10'
+                            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200'
                         }`}
                     >
                         Tìm Việc
@@ -209,7 +210,7 @@ const App: React.FC = () => {
                         className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                             appMode === 'VERIFY_JOB' 
                             ? 'bg-white text-teal-700 shadow-sm' 
-                            : 'text-teal-100 hover:text-white hover:bg-white/10'
+                            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200'
                         }`}
                     >
                         Check Scam
@@ -219,7 +220,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 mt-8">
+      <main className="max-w-7xl mx-auto px-6 mt-10">
         
         {viewMode === 'INPUT' && (
             <div className="animate-fade-in-up">
@@ -247,7 +248,7 @@ const App: React.FC = () => {
                                     <span className="text-sm text-gray-500">Tìm thấy {searchResults.length} công việc</span>
                                 </div>
                                 
-                                <div className="grid grid-cols-1 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                     {searchResults.map((job) => (
                                       <JobCard key={job.id} job={job} onApply={handleAnalyzeJobFromList} />
                                     ))}
@@ -356,6 +357,23 @@ const App: React.FC = () => {
                             <div className="prose prose-sm max-w-none text-gray-600">
                                 <MarkdownRenderer content={selectedJob?.description || "Đang phân tích chi tiết..."} />
                             </div>
+
+                            {/* View Original Link Button */}
+                            {selectedJob?.link && (
+                                <div className="mt-6 pt-4 border-t border-gray-100">
+                                    <a 
+                                        href={selectedJob.link} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-50 text-teal-700 font-medium rounded-lg hover:bg-teal-100 transition-colors border border-teal-200"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                        Xem bài đăng gốc tại {selectedJob.source}
+                                    </a>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
